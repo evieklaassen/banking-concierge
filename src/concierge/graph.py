@@ -13,6 +13,7 @@ import os
 
 from dotenv import load_dotenv
 from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -46,11 +47,24 @@ def _make_model() -> ChatOpenAI:
     return client.bind_tools(TOOLS)
 
 
-def agent_node(state: ConciergeState) -> dict:
+def _with_user_metadata(config: RunnableConfig) -> RunnableConfig:
+    """Copy `configurable.user` into trace metadata.
+
+    LangGraph does not promote `configurable` values to metadata, and Studio /
+    the chat UI only set `configurable`. Workshop attendees set `user` there so
+    their traces are filterable in the shared project.
+    """
+    user = (config.get("configurable") or {}).get("user")
+    if not user:
+        return config
+    return {**config, "metadata": {**(config.get("metadata") or {}), "user": user}}
+
+
+def agent_node(state: ConciergeState, config: RunnableConfig) -> dict:
     """Call the LLM with the message history plus the system prompt."""
     model = _make_model()
     messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
-    response = model.invoke(messages)
+    response = model.invoke(messages, config=_with_user_metadata(config))
 
     retrieval_calls = state.get("retrieval_calls", 0)
     tool_calls = getattr(response, "tool_calls", None) or []
