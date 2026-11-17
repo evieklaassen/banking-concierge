@@ -11,7 +11,7 @@ The two headline bugs live on **two different fix surfaces**, so the demo shows 
 | "Answer rate questions from memory" instruction | **LangSmith Context Hub** (`banking-concierge-agent` / `AGENTS.md`) | ~40% ungrounded APY/APR answers | **Editing `AGENTS.md` in the Context Hub UI** — no code redeploy |
 | `account_lookup` returns unmasked PII | `src/concierge/tools.py` | SSN / card / CVV read back verbatim | **Opening a GitHub PR** against the connected repo |
 
-The agent's instructions are stored in Context Hub as a versioned `AGENTS.md` and pulled at runtime by `src/concierge/context.py:get_prompt()`. The repo keeps only that breadcrumb so Engine knows the prompt lives in the hub. Context Hub also holds a small library of show-only `SKILL.md` repos (the agent doesn't load them) to illustrate what a skills library looks like alongside the agent.
+The agent's instructions are stored in Context Hub as a versioned `AGENTS.md` and pulled at runtime by `src/concierge/context.py:get_prompt()`. The repo also keeps a corrected seed and offline fallback in `src/concierge/prompts.py`; existing hub prompts need the same text published as `AGENTS.md`, promoted to `production`, and the agent restarted to load it. Context Hub also holds a small library of show-only `SKILL.md` repos (the agent doesn't load them) to illustrate what a skills library looks like alongside the agent.
 
 ## What's in here
 
@@ -22,7 +22,7 @@ src/concierge/
   state.py                      MessagesState + retrieval_calls counter
   context.py                    Pulls the system prompt (AGENTS.md) from LangSmith Context Hub at runtime
   context_hub.py                Seeds the hub AGENTS.md + show-only SKILL.md repos
-  prompts.py                    Under-specified system prompt — seed pushed to the hub + offline fallback
+  prompts.py                    Document-grounded system prompt — hub seed + offline fallback
   tools.py                      search_banking_docs + 4 mocked banking tools
   retrieval.py                  In-memory vector store over kb/*.md
   mock_data.py                  Fake customers, transactions, branches
@@ -82,7 +82,7 @@ The agent pulls its system prompt from LangSmith Context Hub, so seed the hub be
 uv run python -m scripts.setup_context_hub
 ```
 
-This creates the `banking-concierge-agent` agent repo (with the buggy `AGENTS.md`) and a few show-only `banking-concierge-*` skill repos, then tags the initial prompt commit as `production`. Until it's run, `get_prompt()` falls back to the seed in `prompts.py`, so the agent still works — but the "fix in Context Hub" demo beat needs the hub repo to exist.
+This creates the `banking-concierge-agent` agent repo (with the corrected seed `AGENTS.md`) and a few show-only `banking-concierge-*` skill repos, then tags the initial prompt commit as `production`. Until it's run, `get_prompt()` falls back to the seed in `prompts.py`, so the agent still works — existing hub content still takes precedence until updated and promoted.
 
 For a truly fresh demo rehearsal, delete and recreate those Context Hub artifacts so the prompt history starts clean:
 

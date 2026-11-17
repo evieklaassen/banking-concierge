@@ -41,7 +41,7 @@ Run these in order from the project root.
 
 The baseline carries **two pre-fix bugs on two different fix surfaces** — that's exactly what we want, and it's the point of the demo: Engine recommends a fix in whichever surface the bug lives in.
 
-- **Hallucination — lives in LangSmith Context Hub (`AGENTS.md`).** The system prompt is seeded into Context Hub (see 3a-bis) with a "Tone and confidence" paragraph that *actively* pushes the agent to give specific numbers (APYs, fees, cutoffs, basis points) from training-time knowledge when retrieval misses, and bans hedge phrases like "I'm not sure" or "I couldn't find that". This is stronger than just "loose" — gpt-4o-mini hedges by default, and a merely permissive prompt didn't produce enough hallucinations for Engine to cluster on. **The fix is applied by editing `AGENTS.md` in the Context Hub UI — no code redeploy.** `src/concierge/prompts.py` holds the same text only as the seed + offline fallback.
+- **Hallucination — lives in LangSmith Context Hub (`AGENTS.md`).** The original system prompt was seeded into Context Hub with a "Tone and confidence" paragraph that *actively* pushes the agent to give specific numbers (APYs, fees, cutoffs, basis points) from training-time knowledge when retrieval misses, and bans hedge phrases like "I'm not sure" or "I couldn't find that". This is stronger than just "loose" — gpt-4o-mini hedges by default, and a merely permissive prompt didn't produce enough hallucinations for Engine to cluster on. **The fix is applied by editing `AGENTS.md` in the Context Hub UI — no code redeploy.** `src/concierge/prompts.py` now contains the corrected seed and offline fallback; setup no longer reproduces this hallucination baseline. Existing hub prompts must be updated to this text, promoted to `production`, and the agent restarted.
 - **PII leak — lives in `src/concierge/tools.py`.** `account_lookup` returns the full customer record verbatim (SSN, full card number, CVV, phone, email). **The fix is a GitHub PR** that masks these at the tool boundary (`ssn_last4`, card `last4` only, `email_masked`).
 
 Combined effect: the deployed baseline confidently invents specific banking numbers when asked off-KB, and reads PII back in plain text when asked. Both are reliable failure clusters.
@@ -55,7 +55,7 @@ uv run python -m scripts.teardown_context_hub --yes
 uv run python -m scripts.setup_context_hub
 ```
 
-`teardown_context_hub` deletes the `banking-concierge-agent` agent repo and the show-only `banking-concierge-*` skill repos, including their commits and tags. `setup_context_hub` recreates them, commits the baseline buggy `AGENTS.md`, and tags that initial prompt commit as `production` so the runtime resolves the clean baseline.
+`teardown_context_hub` deletes the `banking-concierge-agent` agent repo and the show-only `banking-concierge-*` skill repos, including their commits and tags. `setup_context_hub` recreates them, commits the corrected seed `AGENTS.md`, and tags that initial prompt commit as `production` so the runtime resolves the corrected prompt after restart.
 
 If you only need to seed a brand-new workspace, run setup by itself:
 
@@ -188,9 +188,8 @@ National's HELOC interest rate today?" or "How many basis points is the
 relationship interest bonus?" — it should commit to a specific number (the KB
 does not contain either, so any number is fabricated). If it answers with "I
 couldn't find that" or refuses, the strict prompt is live in Context Hub —
-re-seed the buggy `AGENTS.md` with `uv run python -m scripts.setup_context_hub`
-(or revert the commit in the Context Hub UI) and restart the deployment. Then
-check Engine → Settings → Priorities.
+the current setup script also seeds this corrected prompt and will not restore
+the original failure mode. Check Engine → Settings → Priorities.
 
 **Agent ignores a just-saved `AGENTS.md` edit**
 *Cause:* Prompt is pulled once at process start.
@@ -221,7 +220,7 @@ Where each moving part lives. Runnable commands are inline in the rebuild steps 
 | Loadgen | `scripts/load_generation.py` |
 | Context Hub seeder | `scripts/setup_context_hub.py` |
 | Pre-fix system prompt (runtime) | Context Hub `banking-concierge-agent` / `AGENTS.md` (fixed in the hub UI) |
-| Pre-fix system prompt (seed/fallback) | `src/concierge/prompts.py` |
+| Corrected system prompt (seed/fallback) | `src/concierge/prompts.py` |
 | Pre-fix tool that leaks PII | `src/concierge/tools.py` on `main` (fixed via PR) |
 | CI workflow | `.github/workflows/evals-on-pr.yml` |
 | Required GitHub secrets | `OPENAI_API_KEY`, `LANGSMITH_API_KEY`, `LANGSMITH_WORKSPACE_ID` |

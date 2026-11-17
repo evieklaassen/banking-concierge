@@ -1,7 +1,7 @@
 """One-shot Context Hub setup for the banking-concierge demo.
 
 Seeds the LangSmith Context Hub with:
-  1. The agent's ``AGENTS.md`` (the buggy, hallucination-prone system prompt) —
+  1. The agent's ``AGENTS.md`` (the document-grounded system prompt) —
      the runtime source of truth that ``concierge.context.get_prompt()`` pulls.
      The setup promotes the initial prompt commit to the ``production`` tag.
   2. A small library of show-only ``SKILL.md`` repos to demonstrate the hub's
@@ -37,7 +37,7 @@ def main() -> None:
     print("\nContext Hub setup complete.")
     print(f"  Agent repo: {CONTEXT_HUB_REPO} (AGENTS.md)")
     print("  The agent now pulls its system prompt from the hub at runtime.")
-    print("  Edit AGENTS.md in the Context Hub UI to fix the hallucination bug.")
+    print("  Future prompt edits must also be promoted to production in the Context Hub UI.")
 
 
 if __name__ == "__main__":
