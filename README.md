@@ -11,7 +11,7 @@ The two headline bugs live on **two different fix surfaces**, so the demo shows 
 | "Answer rate questions from memory" instruction | **LangSmith Context Hub** (`banking-concierge-agent` / `AGENTS.md`) | ~40% ungrounded APY/APR answers | **Editing `AGENTS.md` in the Context Hub UI** — no code redeploy |
 | `account_lookup` returns unmasked PII | `src/concierge/tools.py` | SSN / card / CVV read back verbatim | **Opening a GitHub PR** against the connected repo |
 
-The agent's instructions are stored in Context Hub as a versioned `AGENTS.md` and pulled at runtime by `src/concierge/context.py:get_prompt()`. The repo keeps only that breadcrumb so Engine knows the prompt lives in the hub. Context Hub also holds a small library of show-only `SKILL.md` repos (the agent doesn't load them) to illustrate what a skills library looks like alongside the agent.
+The agent's instructions are stored in Context Hub as a versioned `AGENTS.md` and pulled at runtime by `src/concierge/context.py:get_prompt()`. Local customer-access and branch-location rules in `prompts.py` are applied to both the hub prompt and the offline fallback. Customer-data tools require the representative to supply one explicit `CUST-####` ID in the current request; follow-up requests must repeat it, and branch searches require a complete five-digit ZIP. Context Hub also holds a small library of show-only `SKILL.md` repos (the agent doesn't load them) to illustrate what a skills library looks like alongside the agent.
 
 ## What's in here
 
