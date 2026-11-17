@@ -6,11 +6,6 @@ from langgraph.graph import MessagesState
 
 
 class ConciergeState(MessagesState):
-    """Messages plus a small counter for tracing observability.
-
-    `retrieval_calls` increments each time the agent calls search_banking_docs.
-    A high value on a single trace is a useful signal for Engine to cluster
-    on as a "agent looped on retrieval" anomaly.
-    """
+    """Messages plus retrieval_calls, counting search_banking_docs invocations regardless of query count."""
 
     retrieval_calls: int
