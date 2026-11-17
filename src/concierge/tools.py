@@ -7,7 +7,6 @@ to cluster after the load generator runs:
   re-queries multiple times rephrasing
 - account_lookup raises on malformed customer IDs and on IDs prefixed with
   "X" (simulated downstream outage)
-- recent_transactions raises if the model passes a runaway limit
 - find_branch raises on non-zip inputs
 """
 
@@ -63,27 +62,34 @@ def account_lookup(customer_id: str) -> dict:
     return dict(customer)
 
 
-@tool
-def recent_transactions(customer_id: str, limit: int = 5) -> list[dict]:
-    """Retrieve a customer's most recent transactions.
-
-    Args:
-        customer_id: The customer ID (e.g. CUST-0001).
-        limit: Optional number of transactions to return.
-    """
+@tool(
+    description=(
+        "Retrieve at most the requested number of a customer's most recent transactions.\n\n"
+        "Args:\n"
+        "    customer_id: The customer ID (e.g. CUST-0001).\n"
+        "    limit: Number of most-recent transactions to return, 1-50 (default 5). "
+        "Fewer are returned if the customer has fewer."
+    )
+)
+def recent_transactions(customer_id: str, limit: int = 5) -> dict:
+    """Retrieve at most the requested number of a customer's most recent transactions."""
     if limit <= 0:
         raise ValueError("limit must be positive")
-    if limit > 50:
-        raise ValueError(
-            f"limit {limit} exceeds the maximum of 50. Pick a smaller number."
-        )
+    requested = limit
+    limit = min(limit, 50)
     if customer_id not in CUSTOMERS:
         raise ValueError(
             f"No customer found with ID {customer_id!r}. "
             "Customer IDs are in the format CUST-####."
         )
     txs = TRANSACTIONS.get(customer_id, [])
-    return [dict(t) for t in txs[:limit]]
+    transactions = [dict(t) for t in txs[:limit]]
+    return {
+        "requested": requested,
+        "returned": len(transactions),
+        "max_limit": 50,
+        "transactions": transactions,
+    }
 
 
 @tool
