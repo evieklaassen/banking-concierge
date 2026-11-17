@@ -9,7 +9,8 @@ ships it — no code redeploy. Override the tag/commit with the
 string to pull the latest commit).
 
 Engine should look here to find where the agent's context comes from — but the
-prompt itself is edited in the Context Hub UI, not in this repo.
+hub prompt itself is edited in the Context Hub UI. Local customer-access and
+branch-location rules are applied to both the hub prompt and the offline fallback.
 ``concierge.prompts.SYSTEM_PROMPT`` is only the seed pushed to the hub and the
 offline fallback used when the hub is unreachable or the tag doesn't exist yet;
 it is not the runtime source of truth.
@@ -29,22 +30,18 @@ CONTEXT_HUB_VERSION = os.getenv("CONTEXT_HUB_VERSION", "production")
 
 
 def get_prompt() -> str:
-    """Return the concierge system prompt, pulled from LangSmith Context Hub.
+    """Return the hub prompt with local data-access rules, or the offline fallback."""
+    from concierge.prompts import CUSTOMER_LOOKUP_RULES, SYSTEM_PROMPT
 
-    Resolves the commit tagged ``CONTEXT_HUB_VERSION`` (``production`` by
-    default). Falls back to the seed in ``concierge.prompts.SYSTEM_PROMPT`` when
-    the hub is unreachable or the tag/repo doesn't exist yet — run
-    ``python -m scripts.setup_context_hub`` to seed and promote it.
-    """
     try:
         version = CONTEXT_HUB_VERSION or None
         agent = Client().pull_agent(CONTEXT_HUB_REPO, version=version)
         content = getattr(agent.files["AGENTS.md"], "content", "")
         if content:
+            if CUSTOMER_LOOKUP_RULES not in content:
+                content += "\n\n" + CUSTOMER_LOOKUP_RULES
             return content
     except Exception:
         pass
-
-    from concierge.prompts import SYSTEM_PROMPT
 
     return SYSTEM_PROMPT
