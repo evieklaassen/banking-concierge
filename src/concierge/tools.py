@@ -7,13 +7,15 @@ to cluster after the load generator runs:
   re-queries multiple times rephrasing
 - account_lookup raises on malformed customer IDs and on IDs prefixed with
   "X" (simulated downstream outage)
-- recent_transactions raises if the model passes a runaway limit
 - find_branch raises on non-zip inputs
 """
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from langchain_core.tools import tool
+from pydantic import Field
 
 from concierge.mock_data import (
     BRANCHES,
@@ -64,26 +66,33 @@ def account_lookup(customer_id: str) -> dict:
 
 
 @tool
-def recent_transactions(customer_id: str, limit: int = 5) -> list[dict]:
-    """Retrieve a customer's most recent transactions.
-
-    Args:
-        customer_id: The customer ID (e.g. CUST-0001).
-        limit: Optional number of transactions to return.
-    """
+def recent_transactions(
+    customer_id: str,
+    limit: Annotated[
+        int,
+        Field(
+            description="Number of most recent transactions, from 1 through 50; defaults to 5. "
+            "For requests above 50, request 50 and explain that 50 is the maximum."
+        ),
+    ] = 5,
+) -> dict:
+    """Retrieve recent transactions; report the returned count, which may be below the requested count or maximum."""
     if limit <= 0:
         raise ValueError("limit must be positive")
-    if limit > 50:
-        raise ValueError(
-            f"limit {limit} exceeds the maximum of 50. Pick a smaller number."
-        )
     if customer_id not in CUSTOMERS:
         raise ValueError(
             f"No customer found with ID {customer_id!r}. "
             "Customer IDs are in the format CUST-####."
         )
     txs = TRANSACTIONS.get(customer_id, [])
-    return [dict(t) for t in txs[:limit]]
+    transactions = [dict(t) for t in txs[: min(limit, 50)]]
+    return {
+        "customer_id": customer_id,
+        "requested": limit,
+        "returned": len(transactions),
+        "max_limit": 50,
+        "transactions": transactions,
+    }
 
 
 @tool
