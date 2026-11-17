@@ -3,8 +3,6 @@
 A few tools have deliberate rough edges so LangSmith Engine has something
 to cluster after the load generator runs:
 
-- search_banking_docs has a vague description so the model occasionally
-  re-queries multiple times rephrasing
 - account_lookup raises on malformed customer IDs and on IDs prefixed with
   "X" (simulated downstream outage)
 - recent_transactions raises if the model passes a runaway limit
@@ -25,20 +23,20 @@ from concierge.retrieval import retrieve
 
 
 @tool
-def search_banking_docs(query: str, k: int = 4) -> str:
-    """Search Meridian National banking documentation.
-
-    Args:
-        query: A natural-language search query.
-        k: Number of relevant chunks to return. Defaults to 4.
-    """
-    chunks = retrieve(query, k=k)
-    if not chunks:
-        return "No relevant documentation found."
+def search_banking_docs(queries: list[str], k: int = 4) -> str:
+    """Search banking docs with one query in a list, returning up to k chunks per query (default 4). Pass every sub-question of a multi-part request in one call as a list; results are deduplicated."""
     blocks = []
-    for chunk in chunks:
-        source = chunk.metadata.get("source", "unknown")
-        blocks.append(f"[source: {source}]\n{chunk.page_content}")
+    seen = set()
+    for query in queries:
+        for chunk in retrieve(query, k=k):
+            source = chunk.metadata.get("source", "unknown")
+            key = (source, chunk.page_content)
+            if key in seen:
+                continue
+            seen.add(key)
+            blocks.append(f"[source: {source}]\n{chunk.page_content}")
+    if not blocks:
+        return "No relevant documentation found."
     return "\n\n---\n\n".join(blocks)
 
 
