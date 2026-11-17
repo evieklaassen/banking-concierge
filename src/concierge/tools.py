@@ -13,6 +13,8 @@ to cluster after the load generator runs:
 
 from __future__ import annotations
 
+from datetime import date
+
 from langchain_core.tools import tool
 
 from concierge.mock_data import (
@@ -64,13 +66,13 @@ def account_lookup(customer_id: str) -> dict:
 
 
 @tool
-def recent_transactions(customer_id: str, limit: int = 5) -> list[dict]:
-    """Retrieve a customer's most recent transactions.
-
-    Args:
-        customer_id: The customer ID (e.g. CUST-0001).
-        limit: Optional number of transactions to return.
-    """
+def recent_transactions(
+    customer_id: str,
+    limit: int = 5,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> list[dict]:
+    """Retrieve customer_id's transactions up to limit; use inclusive start_date/end_date (YYYY-MM-DD) bounds for relative-period questions, or omit for recent rows."""
     if limit <= 0:
         raise ValueError("limit must be positive")
     if limit > 50:
@@ -83,6 +85,14 @@ def recent_transactions(customer_id: str, limit: int = 5) -> list[dict]:
             "Customer IDs are in the format CUST-####."
         )
     txs = TRANSACTIONS.get(customer_id, [])
+    start = date.fromisoformat(start_date) if start_date is not None else None
+    end = date.fromisoformat(end_date) if end_date is not None else None
+    if start is not None and end is not None and start > end:
+        raise ValueError("start_date must be on or before end_date")
+    if start is not None:
+        txs = [t for t in txs if date.fromisoformat(t["date"]) >= start]
+    if end is not None:
+        txs = [t for t in txs if date.fromisoformat(t["date"]) <= end]
     return [dict(t) for t in txs[:limit]]
 
 

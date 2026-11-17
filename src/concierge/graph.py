@@ -10,6 +10,7 @@ Exported as `graph` for LangSmith / LangGraph CLI deployment.
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 from langchain_core.messages import SystemMessage
@@ -49,7 +50,11 @@ def _make_model() -> ChatOpenAI:
 def agent_node(state: ConciergeState) -> dict:
     """Call the LLM with the message history plus the system prompt."""
     model = _make_model()
-    messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
+    today = datetime.now(UTC).date().isoformat()
+    messages = [
+        SystemMessage(content=f"{SYSTEM_PROMPT}\n\nCurrent UTC date: {today}"),
+        *state["messages"],
+    ]
     response = model.invoke(messages)
 
     retrieval_calls = state.get("retrieval_calls", 0)
