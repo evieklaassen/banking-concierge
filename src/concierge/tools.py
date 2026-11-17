@@ -5,13 +5,12 @@ to cluster after the load generator runs:
 
 - search_banking_docs has a vague description so the model occasionally
   re-queries multiple times rephrasing
-- account_lookup raises on malformed customer IDs and on IDs prefixed with
-  "X" (simulated downstream outage)
 - recent_transactions raises if the model passes a runaway limit
-- find_branch raises on non-zip inputs
 """
 
 from __future__ import annotations
+
+import re
 
 from langchain_core.tools import tool
 
@@ -44,16 +43,13 @@ def search_banking_docs(query: str, k: int = 4) -> str:
 
 @tool
 def account_lookup(customer_id: str) -> dict:
-    """Look up account information.
-
-    Returns the customer's name and a list of their account IDs, account
-    types, and balances. Use this when the user wants details about an
-    account.
-    """
-    if customer_id.startswith("X"):
-        raise RuntimeError(
-            "Customer record service is temporarily unavailable. Try again later."
-        )
+    """Look up an exact CUST-#### customer ID; ask for it rather than construct it from an SSN, phone, card number, or name."""
+    if re.fullmatch(r"CUST-[0-9]{4}", customer_id) is None:
+        return {
+            "status": "invalid_customer_id",
+            "retryable": False,
+            "message": "This value is not a customer ID. Ask the representative for the customer's CUST-#### ID; do not retry with a guessed ID or infer that the customer is new.",
+        }
     customer = CUSTOMERS.get(customer_id)
     if customer is None:
         raise ValueError(
@@ -88,15 +84,13 @@ def recent_transactions(customer_id: str, limit: int = 5) -> list[dict]:
 
 @tool
 def find_branch(zip_code: str) -> dict:
-    """Find a Meridian National branch.
-
-    Args:
-        zip_code: A 5-digit U.S. ZIP code.
-    """
-    if not (isinstance(zip_code, str) and len(zip_code) == 5 and zip_code.isdigit()):
-        raise ValueError(
-            f"zip_code must be a 5-digit U.S. ZIP code. Got {zip_code!r}."
-        )
+    """Find a Meridian National branch using the representative's exact five-digit U.S. ZIP code."""
+    if re.fullmatch(r"[0-9]{5}", zip_code) is None:
+        return {
+            "status": "invalid_zip",
+            "retryable": False,
+            "message": "Ask the representative for the full five-digit ZIP code; do not retry by guessing, adding, or changing digits.",
+        }
     branch = find_branch_by_zip(zip_code)
     if branch is None:
         return {

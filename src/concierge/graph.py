@@ -18,6 +18,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from concierge.context import get_prompt
+from concierge.prompts import IDENTIFIER_RULES
 from concierge.state import ConciergeState
 from concierge.tools import TOOLS
 
@@ -26,7 +27,7 @@ load_dotenv(override=True)
 # The system prompt (AGENTS.md) is pulled from LangSmith Context Hub at module
 # import; a hub edit is picked up on the next process start. Falls back to the
 # seed in concierge.prompts.SYSTEM_PROMPT when the hub is unreachable.
-SYSTEM_PROMPT = get_prompt()
+SYSTEM_PROMPT = get_prompt() + "\n\n" + IDENTIFIER_RULES
 
 
 def _make_model() -> ChatOpenAI:
@@ -64,10 +65,20 @@ def agent_node(state: ConciergeState) -> dict:
     }
 
 
+def _handle_tool_error(error: Exception) -> str:
+    return (
+        f"Tool failed: {error}. If this concerns user-supplied input, ask the "
+        "representative for the correct value before trying again. Never guess or "
+        "substitute customer IDs, account numbers, or ZIP codes. A failed lookup "
+        "does not establish identity or mean the customer is new. For a service "
+        "failure, report the failure without changing the lookup value."
+    )
+
+
 def _build_graph():
     builder = StateGraph(ConciergeState)
     builder.add_node("agent", agent_node)
-    builder.add_node("tools", ToolNode(TOOLS, handle_tool_errors=True))
+    builder.add_node("tools", ToolNode(TOOLS, handle_tool_errors=_handle_tool_error))
 
     builder.add_edge(START, "agent")
     builder.add_conditional_edges(

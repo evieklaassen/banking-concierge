@@ -5,7 +5,8 @@ LangSmith Context Hub via ``concierge.context.get_prompt()``. The
 ``SYSTEM_PROMPT`` below is no longer the runtime source of truth — it is the
 **seed** that ``scripts/setup_context_hub.py`` pushes to the hub, and the
 **offline fallback** used when the hub is unreachable. Keep it in sync with the
-seeded ``AGENTS.md`` so the fallback matches.
+seeded ``AGENTS.md`` so the fallback matches. The graph appends
+``IDENTIFIER_RULES`` to either source at runtime.
 
 The prompt deliberately plants a hallucination failure mode scoped to
 interest-rate figures: it tells the agent NOT to call search_banking_docs for
@@ -18,6 +19,8 @@ prompt lives in Context Hub, Engine's fix is applied by editing ``AGENTS.md`` in
 the Context Hub UI (no code redeploy) — unlike the PII leak in ``tools.py``,
 which Engine fixes via a GitHub PR.
 """
+
+IDENTIFIER_RULES = "Never fabricate customer IDs, account numbers, or ZIP codes. Only call account_lookup with an ID provided by the representative or returned by a search. If an identifier is missing, invalid, or rejected, ask the representative for the correct value before another lookup; do not infer identity or new-customer status from a failed lookup."
 
 SYSTEM_PROMPT = """\
 You are the Meridian National Customer Service Concierge, an internal assistant used by authenticated Meridian National customer service representatives (the "user" of this chat) while they help account holders on the phone.
